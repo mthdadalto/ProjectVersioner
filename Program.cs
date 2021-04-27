@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -12,34 +12,41 @@ namespace ProjectVersioner
     class Program
     {
         static string Version = "";
-        static string Version4 => Version + ".0";
+        static string Version4 = "";
+        static readonly Regex reg = new(@"(\d+)\.(\d+)\.?(\d*)\.?(\d*)");
 
         static void Main(string[] args)
         {
-            #region MakeUp Version
-            Version = string.Empty;
+            try
+            {
+                #region MakeUp Version
+                Version = string.Empty;
 #if COMMIT
             string commit = string.Empty;
 #endif
-            Regex reg = new(@"\d*\.\d*\.?\d*?");
-            try
-            {
-                Version = RunCommand("git", "describe --tags");
+                try
+                {
+                    Version = RunCommand("git", "describe --tags");
 #if COMMIT
                 commit = RunCommand("git rev-parse HEAD").Replace("\n", "");
 #endif
-                Version = reg.Match(Version).Value;
-            }
-            catch { }
-
-
-            if (args.Length > 1)
-            {
-                if (reg.IsMatch(args[1]))
-                {
-                    Version = reg.Match(args[1]).Value;
+                    Version = reg.Match(Version).Value;
                 }
-                foreach(string tmp in args)
+                catch { }
+
+
+                try
+                {
+                    Match tmpMatch = reg.Match(args.FirstOrDefault(x => reg.IsMatch(x)));
+                    Version = tmpMatch.Groups[1].Value + "." + tmpMatch.Groups[2].Value + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[3]?.Value)? "0" : tmpMatch.Groups[3].Value);
+                    Version4 = Version + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[4]?.Value) ? "0" : tmpMatch.Groups[4].Value);
+                }
+                catch
+                {
+                    QueryVersion();
+                }
+
+                foreach (string tmp in args)
                 {
                     string file = Path.GetFullPath(tmp);
                     if (File.Exists(file))
@@ -54,22 +61,31 @@ namespace ProjectVersioner
                     }
                 }
             }
-            else
+            catch (Exception ex)
             {
-                Console.WriteLine("Type a version replacement or press enter to use last tag version [current: " + Version + "]");
-                string line = Console.ReadLine();
-                if (!string.IsNullOrWhiteSpace(line))
-                {
-                    if (reg.IsMatch(line))
-                    {
-                        Version = reg.Match(line).Value;
-                    }
-                }
+                Console.WriteLine(nameof(Main));
+                Console.WriteLine(ex.Message);
             }
         }
         #endregion
 
         #region Helpers
+
+
+        static void QueryVersion()
+        {
+            Console.WriteLine("Type a version replacement or press enter to use last tag version [current: " + Version + "]");
+            string line = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(line))
+            {
+                if (reg.IsMatch(line))
+                {
+                    Version = reg.Match(line).Value;
+                }
+            }
+        }
+
+
         static void MakeIos(string path)
         {
             try
@@ -101,7 +117,8 @@ namespace ProjectVersioner
             }
             catch (Exception ex)
             {
-                var db = 0;
+                Console.WriteLine(nameof(MakeIos));
+                Console.WriteLine(ex.Message);
             }
         }
         static void MakeAndroid(string path)
@@ -119,7 +136,8 @@ namespace ProjectVersioner
             }
             catch (Exception ex)
             {
-                var db = 0;
+                Console.WriteLine(nameof(MakeAndroid));
+                Console.WriteLine(ex.Message);
             }
         }
 
@@ -139,10 +157,11 @@ namespace ProjectVersioner
             }
             catch (Exception ex)
             {
-                var db = 0;
+                Console.WriteLine(nameof(MakeProject));
+                Console.WriteLine(ex.Message);
             }
         }
-        
+
         static void MakeAssembly(string path)
         {
             try
@@ -156,7 +175,8 @@ namespace ProjectVersioner
             }
             catch (Exception ex)
             {
-                var db = 0;
+                Console.WriteLine(nameof(MakeAssembly));
+                Console.WriteLine(ex.Message);
             }
         }
 
