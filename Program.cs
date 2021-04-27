@@ -59,7 +59,7 @@ namespace ProjectVersioner
                         DriveFile(file);
                     }
                 }
-                if (ValidFiles < 0) { return; }
+                if (ValidFiles > 0) { return; }
                 Console.WriteLine("No valid files passed.");
                 while (true)
                 {
