@@ -15,6 +15,8 @@ namespace ProjectVersioner
         static string Version4 = "";
         static readonly Regex reg = new(@"(\d+)\.(\d+)\.?(\d*)\.?(\d*)");
 
+        static int ValidFiles = 0;
+
         static void Main(string[] args)
         {
             try
@@ -46,19 +48,26 @@ namespace ProjectVersioner
                     QueryVersion();
                 }
 
+                Console.WriteLine($"Using versions {Version} ({Version4})");
+
+
                 foreach (string tmp in args)
                 {
                     string file = Path.GetFullPath(tmp);
                     if (File.Exists(file))
                     {
-                        if (file.EndsWith("Info.plist")) { MakeIos(file); continue; }
-                        if (file.EndsWith("AndroidManifest.xml")) { MakeAndroid(file); continue; }
-
-                        string ext = Path.GetExtension(tmp);
-                        if (ext.Equals(".cs")) { MakeAssembly(file); continue; }
-                        if (ext.Equals(".csproj")) { MakeProject(file); continue; }
-
+                        DriveFile(file);
                     }
+                }
+                if (ValidFiles < 0) { return; }
+                Console.WriteLine("No valid files passed.");
+                while (true)
+                {
+                    Console.WriteLine("Input a valid file path or Return empty to finish.");
+                    string file = Console.ReadLine();
+                    if(string.IsNullOrWhiteSpace(file)){ break; }
+
+                    DriveFile(file);
                 }
             }
             catch (Exception ex)
@@ -86,10 +95,21 @@ namespace ProjectVersioner
         }
 
 
+        static void DriveFile(string path)
+        {
+            if (path.EndsWith("Info.plist")) { MakeIos(path); return; }
+            if (path.EndsWith("AndroidManifest.xml")) { MakeAndroid(path); return; }
+
+            string ext = Path.GetExtension(path);
+            if (ext.Equals(".cs")) { MakeAssembly(path); return; }
+            if (ext.Equals(".csproj")) { MakeProject(path); return; }
+        }
+
         static void MakeIos(string path)
         {
             try
             {
+                Console.WriteLine(nameof(MakeIos) + ": " + path + " -> ");
                 XDocument doc = XDocument.Load(path);
                 try { doc.DocumentType.InternalSubset = null; } catch { }
                 XElement plist = doc.Element("plist");
@@ -114,10 +134,11 @@ namespace ProjectVersioner
                 }
 
                 doc.Save(path);
+                Console.WriteLine("OK");
+                ++ValidFiles;
             }
             catch (Exception ex)
             {
-                Console.WriteLine(nameof(MakeIos));
                 Console.WriteLine(ex.Message);
             }
         }
@@ -125,6 +146,7 @@ namespace ProjectVersioner
         {
             try
             {
+                Console.WriteLine(nameof(MakeAndroid) + ": " + path + " -> ");
                 string versionCode = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString().Substring(0, 8);
                 XmlDocument doc = new();
                 doc.Load(path);
@@ -133,10 +155,11 @@ namespace ProjectVersioner
                 doc.ChildNodes[1].Attributes["android:versionName"].Value = Version;
 
                 doc.Save(path);
+                Console.WriteLine("OK");
+                ++ValidFiles;
             }
             catch (Exception ex)
             {
-                Console.WriteLine(nameof(MakeAndroid));
                 Console.WriteLine(ex.Message);
             }
         }
@@ -145,6 +168,7 @@ namespace ProjectVersioner
         {
             try
             {
+                Console.WriteLine(nameof(MakeProject) + ": " + path + " -> ");
                 XmlDocument doc = new();
                 doc.Load(path);
                 try { doc.GetElementsByTagName("Version").Item(0).InnerText = Version; } catch { }
@@ -154,10 +178,11 @@ namespace ProjectVersioner
                 try { doc.GetElementsByTagName("Description").Item(0).InnerText = commit; } catch { }
 #endif
                 doc.Save(path);
+                Console.WriteLine("OK");
+                ++ValidFiles;
             }
             catch (Exception ex)
             {
-                Console.WriteLine(nameof(MakeProject));
                 Console.WriteLine(ex.Message);
             }
         }
@@ -166,16 +191,18 @@ namespace ProjectVersioner
         {
             try
             {
+                Console.WriteLine(nameof(MakeAssembly) + ": " + path + " -> ");
                 string text = File.ReadAllText(path);
                 text = Regex.Replace(text, "(AssemblyF?i?l?e?Version\\(\")[\\w|.|\\*]*(\"\\))", "${1}" + Version4 + "${2}");
 #if COMMIT
                 text = Regex.Replace(text, "(AssemblyDescription\\(\\\")[\\w|.|\\*]*(\\\"\\))", "${1}" + commit + "${2}");
 #endif
                 File.WriteAllText(path, text);
+                Console.WriteLine("OK");
+                ++ValidFiles;
             }
             catch (Exception ex)
             {
-                Console.WriteLine(nameof(MakeAssembly));
                 Console.WriteLine(ex.Message);
             }
         }
