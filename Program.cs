@@ -89,7 +89,9 @@ namespace ProjectVersioner
             {
                 if (reg.IsMatch(line))
                 {
-                    Version = reg.Match(line).Value;
+                    Match tmpMatch = reg.Match(line);
+                    Version = tmpMatch.Groups[1].Value + "." + tmpMatch.Groups[2].Value + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[3]?.Value) ? "0" : tmpMatch.Groups[3].Value);
+                    Version4 = Version + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[4]?.Value) ? "0" : tmpMatch.Groups[4].Value);
                 }
             }
         }
