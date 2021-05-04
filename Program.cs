@@ -11,6 +11,7 @@ namespace ProjectVersioner
 {
     class Program
     {
+        const string AutoParameter = "-auto";
         static string Version = "";
         static string Version4 = "";
         static readonly Regex reg = new(@"(\d+)\.(\d+)\.?(\d*)\.?(\d*)");
@@ -22,31 +23,10 @@ namespace ProjectVersioner
             try
             {
                 #region MakeUp Version
-                Version = string.Empty;
 #if COMMIT
             string commit = string.Empty;
 #endif
-                try
-                {
-                    Version = RunCommand("git", "describe --tags");
-#if COMMIT
-                commit = RunCommand("git rev-parse HEAD").Replace("\n", "");
-#endif
-                    Version = reg.Match(Version).Value;
-                }
-                catch { }
-
-
-                try
-                {
-                    Match tmpMatch = reg.Match(args.FirstOrDefault(x => reg.IsMatch(x)));
-                    Version = tmpMatch.Groups[1].Value + "." + tmpMatch.Groups[2].Value + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[3]?.Value)? "0" : tmpMatch.Groups[3].Value);
-                    Version4 = Version + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[4]?.Value) ? "0" : tmpMatch.Groups[4].Value);
-                }
-                catch
-                {
-                    QueryVersion();
-                }
+                MakeVersion(args);
 
                 Console.WriteLine($"Using versions {Version} ({Version4})");
 
@@ -65,7 +45,7 @@ namespace ProjectVersioner
                 {
                     Console.WriteLine("Input a valid file path or Return empty to finish.");
                     string file = Console.ReadLine();
-                    if(string.IsNullOrWhiteSpace(file)){ break; }
+                    if (string.IsNullOrWhiteSpace(file)) { break; }
 
                     DriveFile(file);
                 }
@@ -80,21 +60,77 @@ namespace ProjectVersioner
 
         #region Helpers
 
-
-        static void QueryVersion()
+        static void MakeVersion(string[] args)
         {
-            Console.WriteLine("Type a version replacement or press enter to use last tag version [current: " + Version + "]");
-            string line = Console.ReadLine();
-            if (!string.IsNullOrWhiteSpace(line))
+#if COMMIT
+            commit = RunCommand("git rev-parse HEAD").Replace("\n", "");
+#endif
+
+            //Try given version from arguments
+            try
             {
-                if (reg.IsMatch(line))
+                string ver = args.FirstOrDefault(x => reg.IsMatch(x));
+                Match tmpMatch = reg.Match(ver);
+                if (tmpMatch.Success)
                 {
-                    Match tmpMatch = reg.Match(line);
-                    Version = tmpMatch.Groups[1].Value + "." + tmpMatch.Groups[2].Value + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[3]?.Value) ? "0" : tmpMatch.Groups[3].Value);
-                    Version4 = Version + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[4]?.Value) ? "0" : tmpMatch.Groups[4].Value);
+                    MakeVersion(tmpMatch);
+                    return;
+                }
+
+            }
+            catch { }
+
+
+            //Try -Git from arguments
+            try
+            {
+                if (args.Any(x => x.Equals(AutoParameter, StringComparison.InvariantCultureIgnoreCase)))
+                {
+                    Match tmpMatch = reg.Match(RunCommand("git", "describe --tags"));
+                    if (tmpMatch.Success)
+                    {
+                        MakeVersion(tmpMatch);
+                        return;
+                    }
                 }
             }
+            catch
+            {
+            }
+            try
+            {
+                Console.WriteLine("Type a version replacement or press enter to use last tag version [current: " + Version + "] or pass "+ AutoParameter);
+                string line = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(line))
+                {
+                    Match tmpMatch = reg.Match(line);
+                    if (tmpMatch.Success)
+                    {
+                        MakeVersion(tmpMatch);
+                        return;
+                    }
+                }
+            }
+            catch
+            {
+            }
+            Console.WriteLine("Failed to fetch a version. Please Fix!");
         }
+
+        static void MakeVersion(Match tmpMatch)
+        {
+            try
+            {
+                Version = tmpMatch.Groups[1].Value + "." + tmpMatch.Groups[2].Value + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[3]?.Value) ? "0" : tmpMatch.Groups[3].Value);
+                Version4 = Version + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[4].Value) ? "0" : tmpMatch.Groups[4].Value);
+            }
+            catch
+            {
+                Version = "0.0.0";
+                Version4 = "0.0.0.0";
+            }
+        }
+
 
 
         static void DriveFile(string path)
