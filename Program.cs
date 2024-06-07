@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -12,8 +12,10 @@ namespace ProjectVersioner
     class Program
     {
         const string AutoParameter = "-auto";
+        const string BuildParameter = "-build";
         static string Version = "";
         static string Version4 = "";
+        static string BuildNumber = "";
         static readonly Regex reg = new(@"(\d+)\.(\d+)\.?(\d*)\.?(\d*)");
 
         static int ValidFiles = 0;
@@ -28,7 +30,7 @@ namespace ProjectVersioner
 #endif
                 MakeVersion(args);
 
-                Console.WriteLine($"Using versions {Version} ({Version4})");
+                Console.WriteLine($"Using versions {Version} ({Version4}) and build number {BuildNumber}");
 
 
                 foreach (string tmp in args)
@@ -66,7 +68,7 @@ namespace ProjectVersioner
             commit = RunCommand("git rev-parse HEAD").Replace("\n", "");
 #endif
 
-            //Try given version from arguments
+            // Try given version from arguments
             try
             {
                 string ver = args.FirstOrDefault(x => reg.IsMatch(x));
@@ -76,12 +78,10 @@ namespace ProjectVersioner
                     MakeVersion(tmpMatch);
                     return;
                 }
-
             }
             catch { }
 
-
-            //Try -Git from arguments
+            // Try -Git from arguments
             try
             {
                 if (args.Any(x => x.Equals(AutoParameter, StringComparison.InvariantCultureIgnoreCase)))
@@ -97,9 +97,23 @@ namespace ProjectVersioner
             catch
             {
             }
+
+            // Check for build number argument
             try
             {
-                Console.WriteLine("Type a version replacement or press enter to use last tag version [current: " + Version + "] or pass "+ AutoParameter);
+                string build = args.FirstOrDefault(x => x.StartsWith(BuildParameter, StringComparison.InvariantCultureIgnoreCase));
+                if (!string.IsNullOrEmpty(build))
+                {
+                    BuildNumber = build.Substring(BuildParameter.Length + 1);
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                Console.WriteLine("Type a version replacement or press enter to use last tag version [current: " + Version + "] or pass " + AutoParameter);
                 string line = Console.ReadLine();
                 if (!string.IsNullOrWhiteSpace(line))
                 {
@@ -123,6 +137,12 @@ namespace ProjectVersioner
             {
                 Version = tmpMatch.Groups[1].Value + "." + tmpMatch.Groups[2].Value + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[3]?.Value) ? "0" : tmpMatch.Groups[3].Value);
                 Version4 = Version + "." + (string.IsNullOrWhiteSpace(tmpMatch.Groups[4].Value) ? "0" : tmpMatch.Groups[4].Value);
+
+                // Use the fourth number in the version as the build number if not already set
+                if (string.IsNullOrEmpty(BuildNumber))
+                {
+                    BuildNumber = string.IsNullOrWhiteSpace(tmpMatch.Groups[4]?.Value) ? "" : tmpMatch.Groups[4].Value;
+                }
             }
             catch
             {
@@ -130,8 +150,6 @@ namespace ProjectVersioner
                 Version4 = "0.0.0.0";
             }
         }
-
-
 
         static void DriveFile(string path)
         {
@@ -180,12 +198,13 @@ namespace ProjectVersioner
                 Console.WriteLine(ex.Message);
             }
         }
+
         static void MakeAndroid(string path)
         {
             try
             {
                 Console.WriteLine(nameof(MakeAndroid) + ": " + path + " -> ");
-                string versionCode = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString().Substring(0, 8);
+                string versionCode = string.IsNullOrEmpty(BuildNumber) ? DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString().Substring(0, 8) : BuildNumber;
                 XmlDocument doc = new();
                 doc.Load(path);
 
