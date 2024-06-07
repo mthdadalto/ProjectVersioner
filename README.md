@@ -7,6 +7,7 @@ ProjectVersioner is a tool designed to automate version management for various p
 - Automatically generate and apply version numbers based on provided arguments or Git tags.
 - Update version information in iOS, Android, and .NET project files.
 - Supports command-line arguments for flexibility and automation.
+- Optionally pass a build number for finer control.
 
 ## Getting Started
 
@@ -39,6 +40,7 @@ dotnet build
 The ProjectVersioner tool accepts the following command-line arguments:
 
 - `-auto`: Automatically fetch the latest Git tag as the version.
+- `-build:<build-number>`: Specify a build number.
 - `<file-paths>`: One or more paths to the files that need version updates.
 
 ### Examples
@@ -50,13 +52,13 @@ To use the auto versioning feature with Git tags, run the following command:
 dotnet run -- -auto <file-path-1> <file-path-2> ...
 ```
 
-#### Specifying a Version Manually
+#### Specifying a Version and Build Number Manually
 
-To specify a version manually, run the following command:
+To specify a version and build number manually, run the following command:
 ```sh
-dotnet run -- <version> <file-path-1> <file-path-2> ...
+dotnet run -- <version> -build:<build-number> <file-path-1> <file-path-2> ...
 ```
-Replace `<version>` with the desired version number (e.g., `1.0.0`).
+Replace `<version>` with the desired version number (e.g., `1.0.0`) and `<build-number>` with the desired build number.
 
 #### Interactive Mode
 
@@ -84,6 +86,10 @@ The tool supports the following version formats:
 
 The version is generated based on the provided command-line arguments or the latest Git tag if `-auto` is specified. If no version is provided and `-auto` is not used, the tool prompts the user to enter a version.
 
+### Build Number
+
+If a build number is specified using the `-build` parameter, it is used. Otherwise, the fourth part of the version (if available) is used as the build number. If neither is available, Unix time is used as a fallback.
+
 ### File Processing
 
 The tool processes each file based on its type:
@@ -95,7 +101,7 @@ The tool processes each file based on its type:
 
 ### Helper Functions
 
-- `MakeVersion(string[] args)`: Determines the version to use based on the command-line arguments or user input.
+- `MakeVersion(string[] args)`: Determines the version and build number to use based on the command-line arguments or user input.
 - `DriveFile(string path)`: Determines the file type and calls the appropriate method to update the version.
 - `MakeIos(string path)`, `MakeAndroid(string path)`, `MakeProject(string path)`, `MakeAssembly(string path)`: Methods to update version information in respective file types.
 - `RunCommand(string command, string args)`: Executes a command and returns its output.
